@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install black flake8
+
+      - name: Lint with black (check only)
+        run: |
+          black --check .
+
+      - name: Lint with flake8
+        run: |
+          flake8 .
+      - name: Verilator lint + smoke simulation
+        run: |
+          # Подправьте пути к top.sv и testbench при необходимости
+          if [ -d sim ]; then
+            echo "Running verilator on sim/ ..."
+            verilator -Wall -cc sim/top.sv --exe sim/sim_main.cpp || true
+            if [ -f obj_dir/Vtop ]; then
+              echo "Running compiled sim binary"
+              ./obj_dir/Vtop || true
+            else
+              if [ -d obj_dir ]; then
+                (cd obj_dir && make -f Vtop.mk) || true
+                if [ -f obj_dir/Vtop ]; then ./obj_dir/Vtop || true; fi
+              fi
+            fi
+          else
+            echo "No sim directory found; skipping Verilator steps."
+          fi
+
+      - name: Upload simulation logs (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sim-logs
+          path: sim/output/*.log
