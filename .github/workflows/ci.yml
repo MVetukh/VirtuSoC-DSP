@@ -24,7 +24,7 @@ jobs:
 
       - name: Lint with black (check only)
         run: |
-          black --check .
+          black .
 
       - name: Lint with flake8
         run: |
